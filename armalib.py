@@ -21,18 +21,19 @@
 
 from numpy import *
 
+
 def p2pp(p):
 	pp = convolve(p[::-1],p)
 	return pp[len(p)-1:]
+
 	
-def pp2p(q,acc=1e-6):
+def pp2p(q,acc=1e-6,max_iter=100):
 	n = len(q)
 	q_act = ones_like(q)
 	theta = q / sqrt(q[0])
 	unstable = False
 	
-	for iter in range(1,100):
-		#print iter
+	for iter in range(0,max_iter):
 		p = zeros(n-1)
 		p[0] = - theta[n-1]/theta[0]
 		phi = zeros([n-1,n-1])
@@ -63,9 +64,35 @@ def pp2p(q,acc=1e-6):
 		if max(fabs(q-q_act)) < acc:
 			return theta
 
+
+def arma2cep(num,den,N):
+	n = len(den) -1
+	m = len(num) -1
+	# pad zeroes to have arrays of the same length
+	if n>m: 
+		num = concatenate((num,zeros(n-m)))
+	if m>n: 
+		den = concatenate((den,zeros(m-n)))
+	
+	cep = zeros(N+1)
+	cep[0] = 2*log(abs(num[0])) - 2*log(abs(den[0]))	# entropy
+	num = num/num[0]
+	den = den/den[0]
+	s_num = zeros(N)
+	s_den = zeros(N)
+	s_num[0] = -num[1]
+	s_den[0] = -den[1]
+	for k in range(1,N):
+		s_num[k] = -k*num[k+1] - dot(num[k:0:-1], s_num[:k])
+		s_den[k] = -k*den[k+1] - dot(den[k:0:-1], s_den[:k])
+	cep[1:] = s_den-s_num / range(1,N+1)
+	return cep
+
+def arma2cov(num,den,N):
+	return None
+
 z = array([ .9, .6, .3])
-p = poly(z)
-print absolute(roots(p))
-pp = p2pp(p)
-print p
-print pp2p(pp)
+num = poly(z)
+z = array([ .8, .4, .2])
+den = poly(z)
+print arma2cep(num,den,3)
