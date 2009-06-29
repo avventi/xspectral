@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#       polylib.py
+#       armalib.py
 #       
 #       Copyright 2009 Enrico Avventi <avventi@kth.se>
 #       
