@@ -88,10 +88,50 @@ def arma2cep(num,den,N):
 	return cep
 
 def arma2cov(num,den,N):
-	return None
+	n = len(den) -1
+	m = len(num) -1
+	# pad zeroes if necessary
+	if m<n: 
+		num = concatenate((num,zeros(n-m)))
+	if n<m:
+		den = concatenate((den,zeros(m-n)))
+		n = m
+	# Computing K, the reflection coefficients of the AR-part up to order n, 
+	# using Levinson inverse algorithm.
+	K = zeros(n+1)
+	alpha = zeros([n+1,n+1])
+	alpha[n,:] = den/den[0]
+	for k in range(n-1,-1,-1):
+		K[k] = -alpha[k+1,k+1]
+		if abs(K[k]) == 1:
+			return None
+		alpha[k,1:k+1] = (alpha[k+1,1:k+1]+K[k]*alpha[k+1,k:0:-1])/(1-K[k]**2)
+	# Computing g, the covariance coefficent of the AR-part up to order n,
+	# applying Shur inverse algorithm to the reflection coefficents K.
+	yu = zeros([n+1,n+1])
+	yut = zeros([n+1,n+1])
+	g = zeros(N+n+1)
+	yu[0,0] = 1 / prod(1-K**2)
+	yut[0,0] = yu[0,0]
+	g[0] = yu[0,0]
+	for k in range(0,n):
+		for kk in range(k,-1,-1):
+			yu[k+1,kk] = yu[k+1,kk+1] + K[kk]*yut[k-kk,kk]
+			yut[k-kk,kk+1] = -K[kk]*yu[k+1,kk+1] + (1-K[kk]**2)*yut[k-kk,kk]
+		yut[k+1,kk] = yu[k+1,kk]
+		g[k+1] = yu[k+1,kk]
+	# Comtinue the covariance sequence of the AR-part up to n+N order
+	for k in range(n,n+N):
+		g[k+1] = -dot(den[n:0:-1], g[k-n+1:k+1])/den[0]
+	# Take into account the effect of the MA-part
+	gg = concatenate((g[::-1],g[1:]))
+	pp = convolve(num[::-1],num)
+	cov = convolve(gg,pp)
+	cov = cov[N+2*n:2*N+2*n+1]/den[0]**2
+	return cov
 
 z = array([ .9, .6, .3])
 num = poly(z)
 z = array([ .8, .4, .2])
 den = poly(z)
-print arma2cep(num,den,3)
+print arma2cov(num,den,3)
