@@ -68,12 +68,11 @@ def pp2p(q,acc=1e-6,max_iter=100):
 def arma2cep(num,den,N):
 	n = len(den) -1
 	m = len(num) -1
-	# pad zeroes to have arrays of the same length
-	if n>m: 
-		num = concatenate((num,zeros(n-m)))
-	if m>n: 
-		den = concatenate((den,zeros(m-n)))
-	
+	# pad zeroes if necessary
+	if m<N: 
+		num = concatenate((num,zeros(N-m)))
+	if n<N:
+		den = concatenate((den,zeros(N-n)))
 	cep = zeros(N+1)
 	cep[0] = 2*log(abs(num[0])) - 2*log(abs(den[0]))	# entropy
 	num = num/num[0]
@@ -83,9 +82,9 @@ def arma2cep(num,den,N):
 	s_num[0] = -num[1]
 	s_den[0] = -den[1]
 	for k in range(1,N):
-		s_num[k] = -k*num[k+1] - dot(num[k:0:-1], s_num[:k])
-		s_den[k] = -k*den[k+1] - dot(den[k:0:-1], s_den[:k])
-	cep[1:] = s_den-s_num / range(1,N+1)
+		s_num[k] = -(k+1)*num[k+1] - dot(num[k:0:-1], s_num[:k])
+		s_den[k] = -(k+1)*den[k+1] - dot(den[k:0:-1], s_den[:k])
+	cep[1:] = (s_den-s_num) / range(1,N+1)
 	return cep
 
 def arma2cov(num,den,N):
