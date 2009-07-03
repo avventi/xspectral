@@ -20,6 +20,7 @@
 #       MA 02110-1301, USA.
 
 from numpy import *
+from scipy.signal import lfilter
 
 
 def p2pp(p):
@@ -141,8 +142,40 @@ def arma2cov(num,den,N):
 	cov = cov[N+2*n:2*N+2*n+1]/den[0]**2
 	return cov
 
+def estimate_cov(data, N, force_pos=True):
+	""" Return estimated cavariance coefficients of the sample data up to order N. 
+	If force_pos is true the estimates are such that the associated toeplitx
+	matrix is positive definite to the expense of biasedness."""
+	# estimating via the periodogram
+	n = len(data)
+	if n<N:
+		# too few samples, gotta throw an error here!
+		return None
+	datac = convolve(data[::-1], conj(data))
+	if force_pos:
+		return datac[n-1:n+N]/n
+	return datac[n-1:n+N]/range(n,n-N-1,-1)
+	
+def estimate_cep(data, N):
+	""" Return estimated cepstral coefficients of the sample data up to order N.
+	NOTE: looks like the entropy term is estimated wrongly..."""
+	n = len(data)
+	if n<N:
+		# too few samples, gotta throw an error here!
+		return None
+	fftdata = fft.fft(data)
+	fftcep = 2*log(abs(fftdata))
+	cep = real(fft.ifft(fftcep))
+	return cep[0:N+1] 
+
 z = array([ .9, .6, .3])
 num = poly(z)
 z = array([ .8, .4, .2])
 den = poly(z)
-print arma2cov(num,den,3)
+print arma2cep(num,den,5)
+# it seems that random.randn is not very good 
+# for simulating a white noise process... 
+noise = random.randn(100)
+data = lfilter(num,den,noise) 
+#print estimate_cep(data,5,False)
+print estimate_cep(data,5) 
