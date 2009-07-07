@@ -22,6 +22,7 @@
 from numpy import *
 from scipy.signal import lfilter
 
+GAMMA = 0.577215665 # Euler's constant
 
 def p2pp(p):
 	""" Returns the coefficients of the pseudopolynomial
@@ -163,8 +164,10 @@ def estimate_cep(data, N):
 	if n<N:
 		# too few samples, gotta throw an error here!
 		return None
+	m = 2**(ceil(log2(n))+1)
+	data = concatenate((data,zeros(m-n)))
 	fftdata = fft.fft(data)
-	fftcep = 2*log(abs(fftdata))
+	fftcep = 2*log(abs(fftdata)) - log(n) + GAMMA
 	cep = real(fft.ifft(fftcep))
 	return cep[0:N+1] 
 
@@ -172,10 +175,11 @@ z = array([ .9, .6, .3])
 num = poly(z)
 z = array([ .8, .4, .2])
 den = poly(z)
-print arma2cep(num,den,5)
+print 'num', num
+print 'den', den
+print 'cep', arma2cep(num,den,5)
 # it seems that random.randn is not very good 
 # for simulating a white noise process... 
-noise = random.randn(100)
+noise = random.randn(1000)
 data = lfilter(num,den,noise) 
-#print estimate_cep(data,5,False)
-print estimate_cep(data,5) 
+print 'est', estimate_cep(data,5)
