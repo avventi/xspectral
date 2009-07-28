@@ -21,6 +21,7 @@
 
 from numpy import *
 from scipy.signal import lfilter, fftconvolve
+from pyx import *
 
 GAMMA = 0.577215665 # Euler's constant
 
@@ -34,7 +35,7 @@ def p2pp(p):
 	return pp
 
 	
-def pp2p(q,acc=1e-6,max_iter=20):
+def pp2p(q,acc=1e-6,max_iter=50):
 	""" Given the coefficients of the pseudopolynimial
 		q(z) = q_0 + q_1 (z+z^-1)/2 + ... q_n (z^n + z^-n)/2,
 	this function returns the coefficients of the unique, 
@@ -182,3 +183,24 @@ def simulate_filter(num,den,N):
 	function num(z)/den(z) by feeding it with Gaussian white noise."""
 	noise = random.randn(n_samples)
 	return lfilter(num,den,noise)
+
+
+class plot_spectra:
+	
+	def __init__(self):
+		self.gr = graph.graphxy(width = 8, x=graph.axis.linear(min=0, max=pi),
+										   y=graph.axis.logarithmic())
+
+	def add(self,p,q):
+		def pwr(x):
+			P = p[0]
+			for k in range(1,len(p)):
+				P += p[k]*cos(k*x)
+			Q = q[0]
+			for k in range(1,len(q)):
+				Q += q[k]*cos(k*x)
+			return P/Q
+		self.gr.plot(graph.data.function("y(x) = pwr(x)", context=locals()))
+		
+	def save(self):
+		self.gr.writeEPSfile("prova")
