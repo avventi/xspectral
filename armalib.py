@@ -35,7 +35,7 @@ def p2pp(p):
 	return pp
 
 	
-def pp2p(q,acc=1e-6,max_iter=50):
+def pp2p(q,acc=1e-6,max_iter=100):
 	""" Given the coefficients of the pseudopolynimial
 		q(z) = q_0 + q_1 (z+z^-1)/2 + ... q_n (z^n + z^-n)/2,
 	this function returns the coefficients of the unique, 
@@ -77,6 +77,16 @@ def pp2p(q,acc=1e-6,max_iter=50):
   		theta=y
   
 		if max(fabs(q-q_act)) < acc:
+			# check if the resulting polynomial has all stable roots
+			r = roots(theta)
+			if max(abs(r))>1:
+				# fix it!
+				K = theta[0]
+				for k in range(0,len(r)):
+					if abs(r[k])>1:
+						K = K*r[k]
+						r[k] = 1/r[k]
+				theta = real(poly(r)*K)
 			return theta
 
 
@@ -204,3 +214,10 @@ class plot_spectra:
 		
 	def save(self):
 		self.gr.writeEPSfile("prova")
+
+#p = array([ 0.01008861, -0.00611177, -0.00547137,  0.00613819, -0.00459189])
+#num = pp2p(p)
+#print p
+#print p2pp(num)
+#print num
+#print abs(roots(num))
