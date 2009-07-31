@@ -179,6 +179,7 @@ def estimate_cov(data, N, force_pos=False):
 def estimate_cep(data, N):
 	""" Return estimated cepstral coefficients of the sample 
 	data up to order N."""
+	# estimating using the log-periodogram
 	n = len(data)
 	if n<N:
 		# too few samples, gotta throw an error here!
@@ -212,8 +213,8 @@ class plot_spectra:
 			return P/Q
 		self.gr.plot(graph.data.function("y(x) = pwr(x)", context=locals()))
 		
-	def save(self):
-		self.gr.writeEPSfile("prova")
+	def save(self,file):
+		self.gr.writeEPSfile(file)
 
 #p = array([ 0.01008861, -0.00611177, -0.00547137,  0.00613819, -0.00459189])
 #num = pp2p(p)
