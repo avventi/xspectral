@@ -25,6 +25,20 @@ from pyx import *
 
 GAMMA = 0.577215665 # Euler's constant
 
+def force_stability(p):
+	""" Return the polynomial p'(z) (possibly p itself) with all roots inside
+	the unit circle and such that p(z) p(z^-1) = p'(z) p(z^-1)."""
+	r = roots(p)
+	if max(abs(r))>1:
+		# fix it!
+		K = p[0]
+		for k in range(0,len(r)):
+			if abs(r[k])>1:
+				K = K*r[k]
+				r[k] = 1/r[k]
+		p = real(poly(r)*K)
+	return p
+
 def p2pp(p):
 	""" Returns the coefficients of the pseudopolynomial
 		q(z) = q_0 + q_1 (z+z^-1)/2 + ... q_n (z^n + z^-n)/2
@@ -215,10 +229,3 @@ class plot_spectra:
 		
 	def save(self,file):
 		self.gr.writeEPSfile(file)
-
-#p = array([ 0.01008861, -0.00611177, -0.00547137,  0.00613819, -0.00459189])
-#num = pp2p(p)
-#print p
-#print p2pp(num)
-#print num
-#print abs(roots(num))
