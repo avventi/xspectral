@@ -29,7 +29,7 @@ def cc_approx(cep,cov,alpha=1,beta=1,init_p=None,init_q=None,show_progress=False
 	""" Computes the power spactra approximatively matching given 
 	cepstral and vovariance coefficients with weights alpha and 
 	beta respectively."""
-	
+
 	m = len(cep)
 	n = len(cov)
 	# for debugging purposes
@@ -101,10 +101,12 @@ def cc_approx(cep,cov,alpha=1,beta=1,init_p=None,init_q=None,show_progress=False
 			print tmp_x
 			print abs(roots(num))
 			print abs(roots(den))
-		#my_plot = plot_spectra()
-		#my_plot.add(p,q)
-		#my_plot.save("debug")
+			my_plot = plot_spectra()
+			my_plot.add(p,q)
+			my_plot.save("debug")
 		raise
+	if sol['status'] == 'unknown':
+		return None, None, sol['status']
 	x = sol['x'].T
 	opt_p = zeros(m)
 	opt_q = zeros(n)
@@ -113,40 +115,43 @@ def cc_approx(cep,cov,alpha=1,beta=1,init_p=None,init_q=None,show_progress=False
 	opt_q[:] = x[0,m:m+n]
 	return opt_p/opt_p[0], opt_q/opt_p[0], sol['status']
 	
-def ccx_iter(cov,cep,alpha=500,beta=500,max_iter=10):
+def ccx_iter(cep,cov,alpha=500,beta=500,max_iter=20):
 	""" This function utilizes cc_approx with increasing values of weights 
 	in order to converge faster. """
-	gamma_hi = 1
-	gamma_lo = None
+	# last convergent value
 	act_p = zeros_like(cep)
 	act_q = zeros_like(cov)
 	act_p[0] = 1
 	act_q[0] = 1
+	my_plot = plot_spectra()
+	# next value to try
+	dg = 1.0/max(alpha,beta)
+	gamma = dg
 	for k in range(0,max_iter):
 		status = None
-		if gamma_lo is None:
-			gamma = 0.5*gamma_hi
-		else:
-			gamma = 0.5*(gamma_lo + gamma_hi)
 		try:
-			(p, q, status) = cc_approx(cep,cov,gamma*alpha,gamma*beta,act_p,act_q,max_iter=50)
+			(p, q, status) = cc_approx(cep,cov,gamma*alpha,gamma*beta,act_p,act_q,max_iter=20)
 		except ArithmeticError:
-			gamma_hi = gamma
-			print k, gamma, 'err', gamma_lo, gamma_hi
+			print k, gamma, 'err', gamma*alpha
+			if gamma_lo is None:
+				gamma = 0.1*gamma
+			else:
+				gamma = 0.5*gamma + 0.5*gamma_lo
 		if status == 'optimal':
+			print k, gamma, 'opt', gamma*alpha
 			gamma_lo = gamma
+			gamma = (1-dg)*gamma_lo + dg
 			act_p = p
 			act_q = q
-			print k, gamma, 'opt', gamma_lo, gamma_hi
+			my_plot.add(p,q)
 		if status == 'unknown':
-			gamma_hi = gamma
-			print k, gamma, 'ukn', gamma_lo, gamma_hi
-		
-	return act_p/act_p[0], act_q/act_p[0] 
-				
-				
-			 
-	
+			print k, gamma, 'ukn', gamma*alpha
+			if gamma_lo is None:
+				gamma = 0.1*gamma
+			else:
+				gamma = 0.5*gamma + 0.5*gamma_lo
+	my_plot.save("all")
+	return act_p/act_p[0], act_q/act_p[0]
 	 
 
 j = complex(0,1)
@@ -154,14 +159,19 @@ z = array([.9,.9,.75,.75]) * exp(j*pi*array([.25,-.25,.5-.03,-.5+.03]))
 num = real(poly(z))
 z = array([.8,.8,.8,.8,.9,.9]) * exp(j*pi*array([.3,.2,-.3,-.2,.5,-.5]))
 den = real(poly(z))
-noise = random.randn(1000)
+noise = random.randn(100000)
 data = lfilter(num,den,noise) 
-cep = arma2cep(num,den,4)#estimate_cep(data,4)
-cov = arma2cov(num,den,6)#estimate_cov(data,6)
+cep = estimate_cep(data,4)
+cov = estimate_cov(data,6)
+print 'est_cep', cep
+print 'tru_cep', arma2cep(num,den,4) 
+print 'est_cov', cov
+print 'tru_cov', arma2cov(num,den,6)
 p = p2pp(num)
 q = p2pp(den)
-(opt_p,opt_q) = ccx_iter(cep,cov,300,300)
-(opt_p2,opt_q2,status) = cc_approx(cep,cov,300,300,p,q)
+#(opt_p,opt_q) = ccx_iter(cep,cov,20,20,max_iter=10)	
+
+(opt_p,opt_q,status) = cc_approx(arma2cep(num,den,4),arma2cov(num,den,6),300,300,p,q,max_iter=100,show_progress=True)
 opt_num = pp2p(opt_p)
 opt_den = pp2p(opt_q)
 print opt_p
@@ -172,7 +182,7 @@ print 'cov', cov
 print 'opt_cov', arma2cov(opt_num,opt_den,6)
 
 my_plot = plot_spectra()
-my_plot.add(opt_p2,opt_q2)
+#my_plot.add(opt_p2,opt_q2)
 my_plot.add(opt_p,opt_q)
 my_plot.add(p,q)
 my_plot.save("prova")
