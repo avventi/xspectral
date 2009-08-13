@@ -22,6 +22,7 @@
 from numpy import *
 from scipy.signal import lfilter, fftconvolve
 from pyx import *
+import cvxopt.base as cb
 
 GAMMA = 0.577215665 # Euler's constant
 
@@ -200,8 +201,8 @@ def estimate_cep(data, N):
 		return None
 	fftdata = fft.fft(data)
 	fftcep = 2*log(abs(fftdata)) - log(n) + GAMMA
-	cep = real(fft.ifft(fftcep))
-	return cep[0:N+1]
+	est_cep = real(fft.ifft(fftcep))
+	return est_cep[0:N+1]
 	
 def simulate_filter(num,den,N):
 	""" Generate N samples of the output the filter of transfer 
@@ -229,3 +230,11 @@ class plot_spectra:
 		
 	def save(self,file):
 		self.gr.writeEPSfile(file)
+		
+def iter2matrix(iter, dim=None, type=float):
+	if dim is None:
+		dim = (len(iter),1)
+	out = cb.matrix(0.0, dim)
+	for k in range(0,len(out)):
+		out[k] = type(iter[k])
+	return out

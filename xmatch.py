@@ -34,11 +34,9 @@ max_iter=100,mask_p=None,mask_q=None):
 	m = len(cep)
 	n = len(cov)
 	if init_p is not None:
-		i_p = cb.matrix(0.0, (m,1))
-		i_p[:] = init_p[:]/init_p[0]
+		i_p = iter2matrix(init_p/init_p[0])
 	if init_q is not None:
-		i_q = cb.matrix(0.0, (n,1))
-		i_q[:] = init_q[:] /init_p[0]
+		i_q = iter2matrix(init_q/init_p[0])
 	
 	if mask_p is None:
 		# by default mask out the entropy
@@ -109,40 +107,31 @@ max_iter=100,mask_p=None,mask_q=None):
 	solvers.options['show_progress']= show_progress
 	try:
 		c = cb.matrix(1.0, (rm+rn+1,1))
-		cep_ = cb.matrix(0.0, (m,1))
-		# hack for converting between numpy array to cvxopt matrix classes
-		# the usual way does not work when using estimated cepstrum, precisely:
-		# cep_ = cb.matrix(cep, (m,1))
-		for k in range(0,m):
-			cep_[k] = cep[k]
-		c[:rm] = -Mp*cep_
-		cov_ = cb.matrix(cov, (n,1))
-		c[rm:rm+rn] = Mq*cov_
+		cep = iter2matrix(cep, (m,1))
+		c[:rm] = -Mp*cep
+		cov = iter2matrix(cov, (n,1))
+		c[rm:rm+rn] = Mq*cov
 		sol = solvers.cpl(c,F)
-	except ArithmeticError:
-		#p = zeros(m) 
-		#p[:] = (Mp*tmp_x[0:rm]).T
-		#p[0] += 1
-		#q = zeros(n)
-		#q[:] = (Mq*tmp_x[rm:rm+rn]).T
-		#num = pp2p(p)
-		#den = pp2p(q)
-		#if show_progress:
-			#print tmp_x
-			#print abs(roots(num))
-			#print abs(roots(den))
-			#my_plot = plot_spectra()
-			#my_plot.add(p,q)
-			#my_plot.save("debug")
+	except ArithmeticError: 
+		p = fromiter(Mp.T*tmp_x[0:rm], float)
+		p[0] += 1
+		q = fromiter(Mq.T*tmp_x[rm:rm+rn], float)
+		num = pp2p(p)
+		den = pp2p(q)
+		if show_progress:
+			print tmp_x
+			print abs(roots(num))
+			print abs(roots(den))
+			my_plot = plot_spectra()
+			my_plot.add(p,q)
+			my_plot.save("debug")
 		raise
 	if sol['status'] == 'unknown':
 		return None, None, sol['status']
 	x = sol['x'].T
-	opt_p = zeros(m)
-	opt_q = zeros(n)
-	opt_p[:] = fromiter(Mp.T*x[:rm], float)
+	opt_p = fromiter(Mp.T*x[:rm], float)
 	opt_p[0] += 1
-	opt_q[:] = fromiter(Mq.T*x[rm:rm+rn], float)
+	opt_q = fromiter(Mq.T*x[rm:rm+rn], float)
 	return opt_p/opt_p[0], opt_q/opt_p[0], sol['status']
 	
 def ccx_iter(cep,cov,alpha=500,beta=500,max_iter=20):
@@ -204,7 +193,7 @@ print 'est_cov', cov
 print 'tru_cov', arma2cov(num,den,6)
 p = p2pp(num)
 q = p2pp(den)
-(opt_p,opt_q) = ccx_iter(arma2cep(num,den,4),arma2cov(num,den,6),100000,100000,max_iter=60)	
+(opt_p,opt_q) = ccx_iter(cep,cov,300,300,max_iter=60)	
 
 #(opt_p,opt_q,status) = cc_approx(cep,cov,30,30,max_iter=100,show_progress=True)
 opt_num = pp2p(opt_p)
