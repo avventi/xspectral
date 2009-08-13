@@ -25,36 +25,78 @@ import cvxopt.solvers as solvers
 from scipy.linalg.basic import hankel, toeplitz
 from armalib import *
 
-def cc_approx(cep,cov,alpha=1.0,beta=1.0,init_p=None,init_q=None,show_progress=False,
-max_iter=100,mask_p=None,mask_q=None):
+def cc_approx(cep,cov,w_p=1.0,w_q=1.0,init_p=None,init_q=None,show_progress=False,
+max_iter=100,exact_p_mask=None,exact_q_mask=None):
 	""" Computes the power spactra approximatively matching given 
 	cepstral and vovariance coefficients with weights alpha and 
 	beta respectively."""
 
 	m = len(cep)
 	n = len(cov)
+	
+	# convert initial spectrum, if any, to matrix form
 	if init_p is not None:
 		i_p = iter2matrix(init_p/init_p[0])
 	if init_q is not None:
 		i_q = iter2matrix(init_q/init_p[0])
 	
-	if mask_p is None:
+	# fuction for building weight matrices	
+	def build_inv_weight(w, exact_mask=None):
+		# as it is this function now if, for a certain k, w[k,k] is zero and 
+		# exact_mask[k] is true at the same time, the first take precedence,
+		# that is the corresponing parameter will not be matched at all. 
+		I = []
+		J = []
+		E = []
+		kk = 0
+		for k in range(0,w.size[0]):
+			 if not w[k,k] == 0:
+			 	I.append(kk)
+				J.append(k)
+				E.append(1.0)
+				kk += 1
+			 if exact_mask is not None and w[k,k] == 0:
+				del exact_mask[kk]
+				zero_n += 1
+		I.append(kk-1)
+		J.append(k)
+		E.append(0.0)
+		M = cb.spmatrix(E, I, J)
+		w_r = M*w*M.T
+		i_w_r = cb.matrix(linalg.inv(w_r))
+		if exact_mask is None:
+			return i_w_r, M
+		for k in range(0,len(exact_mask)):
+			if exact_mask[k]:
+				i_w_r[k,:] = 0.0
+				i_w_r[:,k] = 0.0
+		return i_w_r, M
+	
+	# handle the weight matrices
+	if type(w_p) is float or type(w_p) is int:
 		# by default mask out the entropy
-		rm = m-1
-		Mp = cb.spmatrix([0.0], [rm-1], [m-1])
-		Mp[rm::rm+1] = 1
-	else:
-		print "not supporting general masks yet"
-		return None
-	if mask_q is None:
-		# no covariance lag is masked by default
-		rn = n
-		Mq = cb.spmatrix([0.0], [rn-1], [n-1])
-		Mq[0::rn+1] = 1
-	else:
-		print "not supporting general masks yet"
-		return None
-		
+		new_w_p = cb.matrix(0.0, (m,m))
+		new_w_p[m+1::m+1] = w_p
+	if type(w_p) is ndarray:
+		new_w_p = cb.matrix(w_p)
+		if new_w_p[0,0] is not 0.0:	
+			# better avoid match the entropy!
+			if show_progress:
+				print "warning: entropy will not be matched"
+			new_w_p[0,0] = 0.0	
+	i_w_p, Mp = build_inv_weight(new_w_p,exact_p_mask)
+	rm = Mp.size[0]
+	print i_w_p
+	
+	if type(w_q) is float or type(w_q) is int:
+		new_w_q = cb.matrix(0.0, (n,n))
+		new_w_q[0::n+1] = w_q
+	if type(w_q) is ndarray:
+		new_w_q = cb.matrix(w_q)
+	i_w_q, Mq = build_inv_weight(new_w_q,exact_q_mask)
+	rn = Mq.size[0]
+	print i_w_q	
+	
 	# for debugging purposes
 	tmp_x = cb.matrix(1.0, (rm+rn+1,1))
 	
@@ -78,21 +120,21 @@ max_iter=100,mask_p=None,mask_q=None):
 			return None
 		xcep = cb.matrix( arma2cep(num,den,m-1), (m,1))
 		xcov = cb.matrix( arma2cov(num,den,n-1), (n,1))
-		f = 0.5/alpha * xp.T*xp + 0.5/beta * xq.T*xq + xp.T*Mp*xcep -1 + xcep[0] - x[rm+rn]
+		f = 0.5*xp.T*i_w_p*xp + 0.5*xq.T*i_w_q*xq + xp.T*Mp*xcep -1 + xcep[0] - x[rm+rn]
 		Df = cb.matrix(-1.0, (1,rm+rn+1))
-		Df[0,0:rm] = (xp/alpha + Mp*xcep).T
-		Df[0,rm:rm+rn]  = (xq/beta - Mq*xcov).T
+		Df[0,0:rm] = (i_w_p*xp + Mp*xcep).T
+		Df[0,rm:rm+rn]  = (i_w_q*xq - Mq*xcov).T
 		if z is None:
 			return f, Df
 		H = cb.matrix(0.0, (rm+rn+1,rm+rn+1))
 		# evaluate hessian w.r.t p
 		c_p = arma2cov(ones(1),num,2*m-2)
-		H_pp = 0.5*toeplitz(c_p[:m]) + 0.5*hankel(c_p[:m], c_p[m-1:]) + eye(m)/alpha
-		H[:rm,:rm] = Mp*cb.matrix(H_pp, (m,m))*Mp.T
+		H_pp = 0.5*toeplitz(c_p[:m]) + 0.5*hankel(c_p[:m], c_p[m-1:])
+		H[:rm,:rm] = Mp*cb.matrix(H_pp, (m,m))*Mp.T + i_w_p
 		# evaluate hessian w.r.t q
 		c_q = arma2cov(num,polymul(den,den),2*n-2)
-		H_qq = 0.5*toeplitz(c_q[:n]) + 0.5*hankel(c_q[:n], c_q[n-1:]) + eye(n)/beta
-		H[rm:rm+rn,rm:rm+rn] = Mq*cb.matrix(H_qq, (n,n))*Mq.T
+		H_qq = 0.5*toeplitz(c_q[:n]) + 0.5*hankel(c_q[:n], c_q[n-1:])
+		H[rm:rm+rn,rm:rm+rn] = Mq*cb.matrix(H_qq, (n,n))*Mq.T + i_w_q
 		# evaluate the mixed part
 		cc = arma2cov(ones(1),den,n+m-2)
 		H_pq = -0.5*toeplitz(cc[:m], cc[:n]) - 0.5*hankel(cc[:m],cc[m-1:])
@@ -193,9 +235,11 @@ print 'est_cov', cov
 print 'tru_cov', arma2cov(num,den,6)
 p = p2pp(num)
 q = p2pp(den)
-(opt_p,opt_q) = ccx_iter(cep,cov,300,300,max_iter=60)	
+#(opt_p,opt_q) = ccx_iter(cep,cov,300,300,max_iter=60)	
 
-#(opt_p,opt_q,status) = cc_approx(cep,cov,30,30,max_iter=100,show_progress=True)
+mask_ = [True, False, True, False, True]
+print mask_
+(opt_p,opt_q,status) = cc_approx(cep,cov,30,30,max_iter=100,show_progress=True)
 opt_num = pp2p(opt_p)
 opt_den = pp2p(opt_q)
 print opt_p
