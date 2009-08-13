@@ -74,7 +74,7 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 	
 	# handle the weight matrices
 	if type(w_p) is float or type(w_p) is int:
-		# by default mask out the entropy
+		# by default the entropy will not be matched
 		new_w_p = cb.matrix(0.0, (m,m))
 		new_w_p[m+1::m+1] = w_p
 	if type(w_p) is ndarray:
@@ -86,7 +86,6 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 			new_w_p[0,0] = 0.0	
 	i_w_p, Mp = build_inv_weight(new_w_p,exact_p_mask)
 	rm = Mp.size[0]
-	print i_w_p
 	
 	if type(w_q) is float or type(w_q) is int:
 		new_w_q = cb.matrix(0.0, (n,n))
@@ -94,8 +93,7 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 	if type(w_q) is ndarray:
 		new_w_q = cb.matrix(w_q)
 	i_w_q, Mq = build_inv_weight(new_w_q,exact_q_mask)
-	rn = Mq.size[0]
-	print i_w_q	
+	rn = Mq.size[0]	
 	
 	# for debugging purposes
 	tmp_x = cb.matrix(1.0, (rm+rn+1,1))
