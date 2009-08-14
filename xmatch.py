@@ -57,7 +57,6 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 				kk += 1
 			 if exact_mask is not None and w[k,k] == 0:
 				del exact_mask[kk]
-				zero_n += 1
 		I.append(kk-1)
 		J.append(k)
 		E.append(0.0)
@@ -78,7 +77,11 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 		new_w_p = cb.matrix(0.0, (m,m))
 		new_w_p[m+1::m+1] = w_p
 	if type(w_p) is ndarray:
-		new_w_p = cb.matrix(w_p)
+		if len(w_p.shape) == 2:
+			new_w_p = cb.matrix(w_p)
+		if len(w_p.shape) == 1:
+			new_w_p = cb.matrix(0.0, (m,m))
+			new_w_p[m+1::m+1] = w_p[1:m]
 		if new_w_p[0,0] is not 0.0:	
 			# better avoid match the entropy!
 			if show_progress:
@@ -91,7 +94,11 @@ max_iter=100,exact_p_mask=None,exact_q_mask=None):
 		new_w_q = cb.matrix(0.0, (n,n))
 		new_w_q[0::n+1] = w_q
 	if type(w_q) is ndarray:
-		new_w_q = cb.matrix(w_q)
+		if len(w_q.shape) == 2:
+			new_w_q = cb.matrix(w_q)
+		if len(w_q.shape) == 1:
+			new_w_q = cb.matrix(0.0, (n,n))
+			new_w_p[0::n+1] = w_p[:n]
 	i_w_q, Mq = build_inv_weight(new_w_q,exact_q_mask)
 	rn = Mq.size[0]	
 	
@@ -223,7 +230,7 @@ z = array([.9,.9,.75,.75]) * exp(j*pi*array([.25,-.25,.5-.03,-.5+.03]))
 num = real(poly(z))
 z = array([.8,.8,.8,.8,.9,.9]) * exp(j*pi*array([.3,.2,-.3,-.2,.5,-.5]))
 den = real(poly(z))
-noise = random.randn(1000)
+noise = random.randn(10000)
 data = lfilter(num,den,noise) 
 cep = estimate_cep(data,4)
 cov = estimate_cov(data,6)
@@ -233,11 +240,10 @@ print 'est_cov', cov
 print 'tru_cov', arma2cov(num,den,6)
 p = p2pp(num)
 q = p2pp(den)
-#(opt_p,opt_q) = ccx_iter(cep,cov,300,300,max_iter=60)	
-
-mask_ = [True, False, True, False, True]
-print mask_
-(opt_p,opt_q,status) = cc_approx(cep,cov,30,30,max_iter=100,show_progress=True)
+#(opt_p,opt_q) = ccx_iter(cep,cov,10000,10000,max_iter=60)	
+exact_q = [True, True, 0, 0, 0, 0, 0]
+w_p = array([0.0, 1.0, 1.0, 0.0, 0.0])
+(opt_p,opt_q,status) = cc_approx(cep,cov,30*w_p,30,max_iter=100,show_progress=True,exact_q_mask=exact_q)
 opt_num = pp2p(opt_p)
 opt_den = pp2p(opt_q)
 print opt_p
