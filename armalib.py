@@ -230,11 +230,69 @@ class plot_spectra:
 		
 	def save(self,file):
 		self.gr.writeEPSfile(file)
+
+class plot_spectral_stat:
+	def __init__(self,N=1000):
+		self.N = N
+		self.n_data = 0
+		self.theta = math.pi*array(range(0,N))/N
+		self.mean = zeros_like(self.theta)
+		self.powr = zeros_like(self.theta)
+		self.gr = graph.graphxy(width = 8, x=graph.axis.linear(min=0, max=pi),
+										   y=graph.axis.logarithmic())
+										   
+	def set_ref(self,p,q):
+		def pwr(x):
+			P = p[0]
+			for k in range(1,len(p)):
+				P += p[k]*cos(k*x)
+			Q = q[0]
+			for k in range(1,len(q)):
+				Q += q[k]*cos(k*x)
+			return P/Q
+		self.gr.plot(graph.data.function("y(x) = pwr(x)", context=locals()))
 		
-def iter2matrix(iter, dim=None, type=float):
+	def	add(self,p,q):
+		self.n_data += 1
+		for kk in range(0,self.N):	
+			P = p[0]
+			for k in range(1,len(p)):
+				P += p[k]*cos(k*self.theta[kk])
+			Q = q[0]
+			for k in range(1,len(q)):
+				Q += q[k]*cos(k*self.theta[kk])
+			self.mean[kk] += log(P/Q)
+			self.powr[kk] += log(P/Q)**2
+	
+	def save(self,file):
+		print self.n_data
+		self.mean = self.mean/self.n_data
+		self.powr = self.powr/self.n_data
+		print min(self.mean), min(self.powr)
+		def p_mean(x):
+			k = min(self.N-1, floor(self.N*x/pi))
+			return exp(self.mean[k])
+		def pwrp(x):
+			k = min(self.N-1, floor(self.N*x/pi))
+			return exp(self.mean[k] + self.powr[k] - self.mean[k]**2)
+		def pwrm(x):
+			k = min(self.N-1, floor(self.N*x/pi))
+			return exp(self.mean[k] - self.powr[k] + self.mean[k]**2)
+		self.gr.plot(graph.data.function("y(x) = p_mean(x)", context=locals()),
+			styles=[graph.style.line([style.linestyle.dashed])])
+		self.gr.plot(graph.data.function("y(x) = pwrp(x)", context=locals()),
+			styles=[graph.style.line([style.linestyle.dotted])])
+		self.gr.plot(graph.data.function("y(x) = pwrm(x)", context=locals()),
+			styles=[graph.style.line([style.linestyle.dotted])])
+		self.gr.writeEPSfile(file)
+
+
+def iter2matrix(iter, dim=None, el_type=float):
 	if dim is None:
 		dim = (len(iter),1)
 	out = cb.matrix(0.0, dim)
-	for k in range(0,len(out)):
-		out[k] = type(iter[k])
+	k = 0
+	for el in iter:
+		out[k] = el_type(el)
+		k += 1
 	return out

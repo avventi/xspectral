@@ -193,18 +193,19 @@ def ccx_iter(cep,cov,alpha=500,beta=500,max_iter=20):
 	# next value to try
 	dg = 1.0/max(alpha,beta)
 	gamma = dg
+	gamma_lo = None
 	for k in range(0,max_iter):
 		status = None
 		try:
 			(p, q, status) = cc_approx(cep,cov,gamma*alpha,gamma*beta,act_p,act_q,max_iter=20)
 		except ArithmeticError:
-			print k, gamma, 'err', gamma*alpha
+			print '%3d, alpha=%4.1f beta=%4.1f -> err' %(k,gamma*alpha,gamma*beta)
 			if gamma_lo is None:
 				gamma = 0.1*gamma
 			else:
 				gamma = 0.5*gamma + 0.5*gamma_lo
 		if status == 'optimal':
-			print k, gamma, 'opt', gamma*alpha
+			print '%3d, alpha=%4.1f beta=%4.1f -> opt' %(k,gamma*alpha,gamma*beta)
 			if gamma == 1:
 				return act_p/act_p[0], act_q/act_p[0]
 			gamma_lo = gamma
@@ -216,44 +217,14 @@ def ccx_iter(cep,cov,alpha=500,beta=500,max_iter=20):
 			act_q = q
 			#my_plot.add(p,q)
 		if status == 'unknown':
-			print k, gamma, 'ukn', gamma*alpha
+			print '%3d, alpha=%4.1f beta=%4.1f -> ukn' %(k,gamma*alpha,gamma*beta)
 			if gamma_lo is None:
 				gamma = 0.1*gamma
 			else:
 				gamma = 0.2*gamma + 0.8*gamma_lo
 	#my_plot.save("all")
-	return act_p/act_p[0], act_q/act_p[0]
+	if gamma > 1-10**-6:
+		return act_p/act_p[0], act_q/act_p[0]
+	return None, None
 
 
-j = complex(0,1)
-z = array([.9,.9,.75,.75]) * exp(j*pi*array([.25,-.25,.5-.03,-.5+.03]))
-num = real(poly(z))
-z = array([.8,.8,.8,.8,.9,.9]) * exp(j*pi*array([.3,.2,-.3,-.2,.5,-.5]))
-den = real(poly(z))
-noise = random.randn(10000)
-data = lfilter(num,den,noise) 
-cep = estimate_cep(data,4)
-cov = estimate_cov(data,6)
-print 'est_cep', cep
-print 'tru_cep', arma2cep(num,den,4) 
-print 'est_cov', cov
-print 'tru_cov', arma2cov(num,den,6)
-p = p2pp(num)
-q = p2pp(den)
-#(opt_p,opt_q) = ccx_iter(cep,cov,10000,10000,max_iter=60)	
-exact_q = [True, True, 0, 0, 0, 0, 0]
-w_p = array([0.0, 1.0, 1.0, 0.0, 0.0])
-(opt_p,opt_q,status) = cc_approx(cep,cov,30*w_p,30,max_iter=100,show_progress=True,exact_q_mask=exact_q)
-opt_num = pp2p(opt_p)
-opt_den = pp2p(opt_q)
-print opt_p
-print opt_q
-print 'cep', cep 
-print 'opt_cep', arma2cep(opt_num,opt_den,4)
-print 'cov', cov
-print 'opt_cov', arma2cov(opt_num,opt_den,6)
-
-my_plot = plot_spectra()
-my_plot.add(opt_p,opt_q)
-my_plot.add(p,q)
-my_plot.save("prova")
